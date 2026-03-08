@@ -115,6 +115,7 @@ local SETTINGS = {
     USE_MISALIGNED_STACK = "bookshelf_screensaver_use_misaligned_stack",
     NUM_BOOKS = "bookshelf_screensaver_num_books",
     FINISHED_THRESHOLD = "bookshelf_screensaver_finished_threshold",
+    MIN_BOOK_SIZE = "bookshelf_minimum_pages",
     FONT_SIZE = "bookshelf_screensaver_font_size"
 }
 
@@ -127,6 +128,7 @@ local DEFAULTS = {
     USE_RANDOM_COLORS = false,
     USE_MISALIGNED_STACK = true,
     NUM_BOOKS = 5,
+    MIN_BOOK_SIZE = 0,
     FINISHED_THRESHOLD = 97,
     FONT_SIZE = 6,
 }
@@ -151,7 +153,7 @@ end
 -- DATABASE FUNCTIONS
 -- ============================================================================
 
-local function getRecentBooks(max_books)
+local function getRecentBooks(max_books, min_book_size)
     if not STATISTICS_DB_PATH or STATISTICS_DB_PATH == "" then
         return nil
     end
@@ -174,9 +176,10 @@ local function getRecentBooks(max_books)
         LEFT JOIN page_stat p ON b.id = p.id_book
         GROUP BY b.id
         HAVING current_page * 100 >= pages
+            AND b.pages >= %d
         ORDER BY last_read DESC
         LIMIT %d;
-    ]], max_books)
+    ]], min_book_size, max_books)
 
     local books = {}
     local ok_query, results = pcall(function()
@@ -345,8 +348,9 @@ local function buildBookshelfWidget()
     local num_books = getSetting(SETTINGS.NUM_BOOKS, DEFAULTS.NUM_BOOKS)
     local finished_threshold = getSetting(SETTINGS.FINISHED_THRESHOLD, DEFAULTS.FINISHED_THRESHOLD)
     local font_size = getSetting(SETTINGS.FONT_SIZE, DEFAULTS.FONT_SIZE)
+    local min_book_size = getSetting(SETTINGS.MIN_BOOK_SIZE, DEFAULTS.MIN_BOOK_SIZE)
 
-    local books = getRecentBooks(num_books)
+    local books = getRecentBooks(num_books, min_book_size)
     if not books then
         books = {
             { title = "Project Hail Mary",              author = "Andy Weir",           pages = 600,  progress = 67, time_remaining = 12660 },
@@ -823,6 +827,7 @@ _G.dofile = function(filepath)
                     createSpinnerMenuItem("Set number of books", SETTINGS.NUM_BOOKS, DEFAULTS.NUM_BOOKS, 1, 10, 1),
                     createSpinnerMenuItem("Set 'finished' threshold (%)", SETTINGS.FINISHED_THRESHOLD,
                         DEFAULTS.FINISHED_THRESHOLD, 90, 100, 1),
+                    createSpinnerMenuItem("Set minimum number of pages of included books", SETTINGS.MIN_BOOK_SIZE, DEFAULTS.MIN_BOOK_SIZE, 0, 999999, 5),
                     createSpinnerMenuItem("Set font size", SETTINGS.FONT_SIZE,
                         DEFAULTS.FONT_SIZE, 4, 10, 1),
                     -- Actions section
