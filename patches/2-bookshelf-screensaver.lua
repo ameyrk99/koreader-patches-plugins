@@ -24,11 +24,15 @@ local VerticalGroup        = require("ui/widget/verticalgroup")
 local HorizontalSpan       = require("ui/widget/horizontalspan")
 local VerticalSpan         = require("ui/widget/verticalspan")
 local OverlapGroup         = require("ui/widget/overlapgroup")
+local RenderImage          = require("ui/renderimage")
 
 local Screen               = Device.screen
 
+local BOOKINFO_CACHE_PATH  = DataStorage:getSettingsDir() .. "/bookinfo_cache.sqlite3"
 local STATISTICS_DB_PATH   = DataStorage:getSettingsDir() .. "/statistics.sqlite3"
 local STACK_DECOR_PATH     = DataStorage:getDataDir() .. "/resources/bookshelf-screensaver-decor.png"
+-- Update this if you use a different folder for backgrounds/wallpapers
+local CUSTOM_BG_PATH       = DataStorage:getDataDir() .. "/resources/backgrounds/"
 
 local STACK_OFFSET_LEFT    = Screen:scaleBySize(20)
 local STACK_OFFSET_BOTTOM  = Screen:scaleBySize(20)
@@ -43,11 +47,12 @@ local STACK_DECOR_HEIGHT   = Screen:scaleBySize(200)
 local STACK_DECOR_OFFSET_X = Screen:scaleBySize(50)
 local STACK_DECOR_OFFSET_Y = Screen:scaleBySize(5)
 
+
 -- ============================================================================
 -- LOCALIZATION
 -- ============================================================================
 
-local PATCH_L10N           = {
+local PATCH_L10N = {
     en = {
         -- Screensaver text
         ["Unknown"] = "Unknown",
@@ -64,7 +69,11 @@ local PATCH_L10N           = {
         ["── Actions ──"] = "── Actions ──",
 
         -- Display settings
-        ["Show background"] = "Show background",
+        ["Background type"] = "Background type",
+        ["No background"] = "No background",
+        ["Dotted pattern"] = "Dotted pattern",
+        ["Book cover"] = "Book cover",
+        ["Custom image"] = "Custom image",
         ["Show stack decoration"] = "Show stack decoration",
         ["Show time left"] = "Show time left",
         ["Show percent completed"] = "Show percent completed",
@@ -106,8 +115,14 @@ end
 -- SETTINGS
 -- ============================================================================
 
+-- Background Types
+local BACKGROUND_NONE = 0
+local BACKGROUND_DOTTED = 1
+local BACKGROUND_COVER = 2
+local BACKGROUND_CUSTOM = 3
+
 local SETTINGS = {
-    SHOW_BACKGROUND = "bookshelf_screensaver_show_background",
+    BACKGROUND_TYPE = "bookshelf_screensaver_background_type",
     SHOW_STACK_DECOR = "bookshelf_screensaver_show_stack_decor",
     SHOW_TIME_LEFT = "bookshelf_screensaver_show_time_left",
     SHOW_PERCENT = "bookshelf_screensaver_show_percent",
@@ -121,8 +136,8 @@ local SETTINGS = {
 }
 
 local DEFAULTS = {
-    SHOW_BACKGROUND = true,
-    SHOW_STACK_DECOR = true,
+    BACKGROUND_TYPE = 1,
+    SHOW_STACK_DECOR = false,
     SHOW_TIME_LEFT = true,
     SHOW_PERCENT = false,
     SHOW_BANDS = true,
@@ -172,7 +187,7 @@ local function getRecentBooks(max_books, min_book_size)
     local sql_stmt = string.format([[
         SELECT b.title, b.authors, b.pages, MAX(p.start_time) as last_read,
             (SELECT page FROM page_stat WHERE id_book = b.id ORDER BY start_time DESC LIMIT 1) as current_page,
-            b.total_read_time, b.total_read_pages
+            b.total_read_time, b.total_read_pages, b.notes
         FROM book b
         LEFT JOIN page_stat p ON b.id = p.id_book
         GROUP BY b.id
@@ -233,6 +248,54 @@ end
 -- ============================================================================
 -- HELPER FUNCTIONS
 -- ============================================================================
+
+local function getBookCoverBackground()
+    local ReaderUI = require("apps/reader/readerui")
+    local ui = ReaderUI.instance
+
+    if not ui or not ui.document or not ui.bookinfo then return nil end
+
+    local screen_size = Screen:getSize()
+    local cover_bb = ui.bookinfo:getCoverImage(ui.document)
+    if not cover_bb then return nil end
+
+    local scaled_bb = RenderImage:scaleBlitBuffer(cover_bb, screen_size.w, screen_size.h, true)
+    if scaled_bb ~= cover_bb and cover_bb.free then
+        cover_bb:free()
+    end
+
+    return ImageWidget:new {
+        image = scaled_bb,
+        width = screen_size.w,
+        height = screen_size.h,
+    }
+end
+
+local function getCustomBackground()
+    local screen_size = Screen:getSize()
+    local bg_dir = CUSTOM_BG_PATH
+
+    local attrs = lfs.attributes(bg_dir, "mode")
+    if attrs ~= "directory" then return nil end
+
+    local images = {}
+    for entry in lfs.dir(bg_dir) do
+        if entry:match("%.png$") or entry:match("%.jpg$") or entry:match("%.jpeg$") then
+            table.insert(images, bg_dir .. entry)
+        end
+    end
+
+    if #images == 0 then return nil end
+
+    local chosen = images[math.random(1, #images)]
+
+    return ImageWidget:new {
+        file = chosen,
+        width = screen_size.w,
+        height = screen_size.h,
+        scale_factor = 0, -- auto scale to fit
+    }
+end
 
 local function formatTimeRemaining(seconds)
     if not seconds or seconds <= 0 then
@@ -339,7 +402,7 @@ local function buildBookshelfWidget()
     local screen_size = Screen:getSize()
 
     -- Load settings
-    local show_background = isSettingEnabled(SETTINGS.SHOW_BACKGROUND, DEFAULTS.SHOW_BACKGROUND)
+    local background_type = getSetting(SETTINGS.BACKGROUND_TYPE, DEFAULTS.BACKGROUND_TYPE)
     local show_stack_decor = isSettingEnabled(SETTINGS.SHOW_STACK_DECOR, DEFAULTS.SHOW_STACK_DECOR)
     local show_time_left = isSettingEnabled(SETTINGS.SHOW_TIME_LEFT, DEFAULTS.SHOW_TIME_LEFT)
     local show_percent_completed = isSettingEnabled(SETTINGS.SHOW_PERCENT, DEFAULTS.SHOW_PERCENT)
@@ -626,8 +689,17 @@ local function buildBookshelfWidget()
         dimen = screen_size,
     }
 
-    if show_background then
-        local bg_widget = createDottedBackground()
+    -- Background
+    local bg_widget = nil
+    if background_type == BACKGROUND_DOTTED then
+        bg_widget = createDottedBackground()
+    elseif background_type == BACKGROUND_COVER and books and books[1] then
+        bg_widget = getBookCoverBackground()
+    elseif background_type == BACKGROUND_CUSTOM then
+        bg_widget = getCustomBackground()
+    end
+
+    if bg_widget then
         table.insert(final_widget, bg_widget)
     end
 
@@ -749,14 +821,53 @@ _G.dofile = function(filepath)
                         enabled = false,
                     },
                     {
-                        text = _("Show background"),
-                        checked_func = function()
-                            return isSettingEnabled(SETTINGS.SHOW_BACKGROUND, DEFAULTS.SHOW_BACKGROUND)
-                        end,
-                        callback = function()
-                            local current = isSettingEnabled(SETTINGS.SHOW_BACKGROUND, DEFAULTS.SHOW_BACKGROUND)
-                            G_reader_settings:saveSetting(SETTINGS.SHOW_BACKGROUND, not current)
-                        end,
+                        text = _("Background type"),
+                        sub_item_table = {
+                            {
+                                text = _("No background"),
+                                checked_func = function()
+                                    return getSetting(SETTINGS.BACKGROUND_TYPE, DEFAULTS.BACKGROUND_TYPE) ==
+                                        BACKGROUND_NONE
+                                end,
+                                callback = function()
+                                    G_reader_settings:saveSetting(SETTINGS.BACKGROUND_TYPE, BACKGROUND_NONE)
+                                end,
+                                radio = true,
+                            },
+                            {
+                                text = _("Dotted pattern"),
+                                checked_func = function()
+                                    return getSetting(SETTINGS.BACKGROUND_TYPE, DEFAULTS.BACKGROUND_TYPE) ==
+                                        BACKGROUND_DOTTED
+                                end,
+                                callback = function()
+                                    G_reader_settings:saveSetting(SETTINGS.BACKGROUND_TYPE, BACKGROUND_DOTTED)
+                                end,
+                                radio = true,
+                            },
+                            {
+                                text = _("Book cover"),
+                                checked_func = function()
+                                    return getSetting(SETTINGS.BACKGROUND_TYPE, DEFAULTS.BACKGROUND_TYPE) ==
+                                        BACKGROUND_COVER
+                                end,
+                                callback = function()
+                                    G_reader_settings:saveSetting(SETTINGS.BACKGROUND_TYPE, BACKGROUND_COVER)
+                                end,
+                                radio = true,
+                            },
+                            {
+                                text = _("Custom image"),
+                                checked_func = function()
+                                    return getSetting(SETTINGS.BACKGROUND_TYPE, DEFAULTS.BACKGROUND_TYPE) ==
+                                        BACKGROUND_CUSTOM
+                                end,
+                                callback = function()
+                                    G_reader_settings:saveSetting(SETTINGS.BACKGROUND_TYPE, BACKGROUND_CUSTOM)
+                                end,
+                                radio = true,
+                            },
+                        },
                     },
                     {
                         text = _("Show stack decoration"),
@@ -841,7 +952,7 @@ _G.dofile = function(filepath)
                     {
                         text = _("Restore defaults"),
                         callback = function()
-                            G_reader_settings:delSetting(SETTINGS.SHOW_BACKGROUND)
+                            G_reader_settings:delSetting(SETTINGS.BACKGROUND_TYPE)
                             G_reader_settings:delSetting(SETTINGS.SHOW_STACK_DECOR)
                             G_reader_settings:delSetting(SETTINGS.SHOW_TIME_LEFT)
                             G_reader_settings:delSetting(SETTINGS.SHOW_PERCENT)
