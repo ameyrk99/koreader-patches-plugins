@@ -26,7 +26,8 @@ Config:
 | Randomize book colors  | `disabled` | Randomize book colors instead of cycling                                                  |
 | Misaligned stack       | `enabled`  | Slightly offset books for a natural look                                                  |
 | Number of books        | `5`        | Books to display                                                                          |
-| "finished" threshold   | `97`       | Consider book finished if above this % (in order to ignore glossary, appendix, etc pages) |
+| `finished` threshold   | `97`       | Consider book finished if above this % (in order to ignore glossary, appendix, etc pages) |
+| Min page threshold     | `0`        | Hide books if below threshold (to filter small PDFs etc)                                  |
 | Font size              | `6`        | Font size for text. Truncated if too long                                                 |
 
 Add more or customize book colors in `getBookColor` function.

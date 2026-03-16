@@ -75,6 +75,7 @@ local PATCH_L10N           = {
         -- Book settings
         ["Set number of books"] = "Set number of books",
         ["Set 'finished' threshold (%)"] = "Set 'finished' threshold (%)",
+        ["Set minimum page threshold"] = "Set minimum page threshold",
         ["Set font size"] = "Set font size",
 
         -- Actions
@@ -827,7 +828,9 @@ _G.dofile = function(filepath)
                     createSpinnerMenuItem("Set number of books", SETTINGS.NUM_BOOKS, DEFAULTS.NUM_BOOKS, 1, 10, 1),
                     createSpinnerMenuItem("Set 'finished' threshold (%)", SETTINGS.FINISHED_THRESHOLD,
                         DEFAULTS.FINISHED_THRESHOLD, 90, 100, 1),
-                    createSpinnerMenuItem("Set minimum number of pages of included books", SETTINGS.MIN_BOOK_SIZE, DEFAULTS.MIN_BOOK_SIZE, 0, 999999, 5),
+                    createSpinnerMenuItem("Set minimum pages threshold", SETTINGS.MIN_BOOK_SIZE, DEFAULTS.MIN_BOOK_SIZE,
+                        0,
+                        999999, 5),
                     createSpinnerMenuItem("Set font size", SETTINGS.FONT_SIZE,
                         DEFAULTS.FONT_SIZE, 4, 10, 1),
                     -- Actions section
@@ -847,6 +850,7 @@ _G.dofile = function(filepath)
                             G_reader_settings:delSetting(SETTINGS.USE_MISALIGNED_STACK)
                             G_reader_settings:delSetting(SETTINGS.NUM_BOOKS)
                             G_reader_settings:delSetting(SETTINGS.FINISHED_THRESHOLD)
+                            G_reader_settings:delSetting(SETTINGS.MIN_BOOK_SIZE)
                             G_reader_settings:delSetting(SETTINGS.FONT_SIZE)
 
                             local Notification = require("ui/widget/notification")
