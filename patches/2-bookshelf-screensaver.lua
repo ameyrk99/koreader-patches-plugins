@@ -1,6 +1,6 @@
 --[[
 Koreader Bookshelf Screensaver
-Version: 1.0.0
+Version: 1.1.0
 Amey Khairnar
 https://github.com/ameyrk99/koreader-patches-plugins
 ]] --
@@ -28,7 +28,6 @@ local RenderImage          = require("ui/renderimage")
 
 local Screen               = Device.screen
 
-local BOOKINFO_CACHE_PATH  = DataStorage:getSettingsDir() .. "/bookinfo_cache.sqlite3"
 local STATISTICS_DB_PATH   = DataStorage:getSettingsDir() .. "/statistics.sqlite3"
 local STACK_DECOR_PATH     = DataStorage:getDataDir() .. "/resources/bookshelf-screensaver-decor.png"
 -- Update this if you use a different folder for backgrounds/wallpapers
@@ -301,15 +300,52 @@ local function getCustomBackground()
 
     if #images == 0 then return nil end
 
-    local chosen = images[math.random(1, #images)]
+    -- Shuffle and try images until one works
+    for _ = 1, #images do
+        local idx = math.random(1, #images)
+        local chosen = table.remove(images, idx)
 
-    return ImageWidget:new {
-        file = chosen,
-        width = screen_size.w,
-        height = screen_size.h,
-        scale_factor = 0, -- auto scale to fit
-    }
+        local ok, bb = pcall(function()
+            return RenderImage:renderImageFile(chosen, false, screen_size.w, screen_size.h)
+        end)
+
+        if ok and bb then
+            return ImageWidget:new {
+                image = bb,
+                width = screen_size.w,
+                height = screen_size.h,
+            }
+        end
+    end
+
+    return nil
 end
+
+-- local function getCustomBackground()
+--     local screen_size = Screen:getSize()
+--     local bg_dir = CUSTOM_BG_PATH
+
+--     local attrs = lfs.attributes(bg_dir, "mode")
+--     if attrs ~= "directory" then return nil end
+
+--     local images = {}
+--     for entry in lfs.dir(bg_dir) do
+--         if entry:match("%.png$") or entry:match("%.jpg$") or entry:match("%.jpeg$") then
+--             table.insert(images, bg_dir .. entry)
+--         end
+--     end
+
+--     if #images == 0 then return nil end
+
+--     local chosen = images[math.random(1, #images)]
+
+--     return ImageWidget:new {
+--         file = chosen,
+--         width = screen_size.w,
+--         height = screen_size.h,
+--         scale_factor = 0, -- auto scale to fit
+--     }
+-- end
 
 local function formatTimeRemaining(seconds)
     if not seconds or seconds <= 0 then
@@ -519,7 +555,7 @@ local function buildStandingBookWidget(height, width, progress, time_remaining, 
     local info_box_x = Screen:scaleBySize(10)
 
     local combined_widget = OverlapGroup:new {
-        dimen = { w = width + SHADOW_SIZE_RIGHT, h = height + SHADOW_SIZE_BOTTOM },
+        dimen = { w = width + SHADOW_SIZE_RIGHT + SHADOW_SIZE_RIGHT, h = height + SHADOW_SIZE_BOTTOM },
         book_with_shadow,
         VerticalGroup:new {
             VerticalSpan:new { width = info_box_y },
@@ -624,7 +660,7 @@ local function buildBookshelfWidget()
                         standing_book_widget,
                     })
                     table.insert(books_stack, VerticalSpan:new { width = Screen:scaleBySize(1) })
-                    total_height = total_height + standing_book_h + BOOK_SPACING
+                    total_height = total_height + standing_book_h + SHADOW_SIZE_BOTTOM + BOOK_SPACING
                     goto continue
                 else
                     -- if widget creation failed, fall back on normal display for book
@@ -912,6 +948,10 @@ local function buildBookshelfWidget()
         bg_widget = createDottedBackground()
     elseif background_type == BACKGROUND_COVER and books and books[1] then
         bg_widget = getBookCoverBackground()
+        -- Fall back on dotted background if no book open
+        if bg_widget == nil then
+            bg_widget = createDottedBackground()
+        end
     elseif background_type == BACKGROUND_CUSTOM then
         bg_widget = getCustomBackground()
     end
@@ -969,6 +1009,8 @@ Screensaver.show = function(self)
     Device.screen_saver_mode = true
 
     local widget = buildBookshelfWidget()
+
+    Screen:clear()
 
     self.screensaver_widget = ScreenSaverWidget:new {
         widget = widget,
