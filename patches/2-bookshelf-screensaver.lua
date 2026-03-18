@@ -74,6 +74,10 @@ local PATCH_L10N = {
         ["Dotted pattern"] = "Dotted pattern",
         ["Book cover"] = "Book cover",
         ["Custom image"] = "Custom image",
+        ["Progression type"] = "Progression type",
+        ["Progress bar"] = "Progress bar",
+        ["Top to bottom"] = "Top to bottom",
+        ["Bottom to top"] = "Bottom to top",
         ["Show standing book"] = "Show standing book",
         ["Show stack decoration"] = "Show stack decoration",
         ["Show time left"] = "Show time left",
@@ -116,6 +120,11 @@ end
 -- SETTINGS
 -- ============================================================================
 
+-- Progression Types
+local PROGRESSION_BAR = 0
+local PROGRESSION_TOP_TO_BOTTOM = 1
+local PROGRESSION_BOTTOM_TO_TOP = 2
+
 -- Background Types
 local BACKGROUND_NONE = 0
 local BACKGROUND_DOTTED = 1
@@ -124,6 +133,7 @@ local BACKGROUND_CUSTOM = 3
 
 local SETTINGS = {
     BACKGROUND_TYPE = "bookshelf_screensaver_background_type",
+    PROGRESSION_TYPE = "bookshelf_screensaver_progression_type",
     SHOW_STANDING_BOOK = "bookshelf_screensaver_show_standing_book",
     SHOW_STACK_DECOR = "bookshelf_screensaver_show_stack_decor",
     SHOW_TIME_LEFT = "bookshelf_screensaver_show_time_left",
@@ -138,7 +148,8 @@ local SETTINGS = {
 }
 
 local DEFAULTS = {
-    BACKGROUND_TYPE = 1,
+    BACKGROUND_TYPE = BACKGROUND_DOTTED,
+    PROGRESSION_TYPE = PROGRESSION_BAR,
     SHOW_STANDING_BOOK = true,
     SHOW_STACK_DECOR = false,
     SHOW_TIME_LEFT = true,
@@ -527,6 +538,7 @@ local function buildBookshelfWidget()
 
     -- Load settings
     local background_type = getSetting(SETTINGS.BACKGROUND_TYPE, DEFAULTS.BACKGROUND_TYPE)
+    local progression_type = getSetting(SETTINGS.PROGRESSION_TYPE, DEFAULTS.PROGRESSION_TYPE)
     local show_standing_book = isSettingEnabled(SETTINGS.SHOW_STANDING_BOOK, DEFAULTS.SHOW_STANDING_BOOK)
     local show_stack_decor = isSettingEnabled(SETTINGS.SHOW_STACK_DECOR, DEFAULTS.SHOW_STACK_DECOR)
     local show_time_left = isSettingEnabled(SETTINGS.SHOW_TIME_LEFT, DEFAULTS.SHOW_TIME_LEFT)
@@ -628,9 +640,8 @@ local function buildBookshelfWidget()
             total_height = total_height + book_height + SHADOW_SIZE_BOTTOM
         end
 
-
-
         local progress = book.progress or 0
+        local progress_height = math.floor(book_height * (progress / 100))
         local progress_width = math.floor(book_width * (progress / 100))
 
         local title_widget = TextWidget:new {
@@ -669,24 +680,65 @@ local function buildBookshelfWidget()
                 },
             }
         else
-            spine = HorizontalGroup:new {
-                FrameContainer:new {
-                    width = progress_width,
-                    height = book_height,
-                    background = base_color,
-                    bordersize = 0,
-                    padding = 0,
-                    HorizontalSpan:new { width = progress_width },
-                },
-                FrameContainer:new {
-                    width = book_width - progress_width,
-                    height = book_height,
-                    background = accent_color,
-                    bordersize = 0,
-                    padding = 0,
-                    HorizontalSpan:new { width = book_width - progress_width },
+            if progression_type == PROGRESSION_BAR then
+                spine = HorizontalGroup:new {
+                    FrameContainer:new {
+                        width = progress_width,
+                        height = book_height,
+                        background = base_color,
+                        bordersize = 0,
+                        padding = 0,
+                        HorizontalSpan:new { width = progress_width },
+                    },
+                    FrameContainer:new {
+                        width = book_width - progress_width,
+                        height = book_height,
+                        background = accent_color,
+                        bordersize = 0,
+                        padding = 0,
+                        HorizontalSpan:new { width = book_width - progress_width },
+                    }
                 }
-            }
+            elseif progression_type == PROGRESSION_TOP_TO_BOTTOM then
+                spine = VerticalGroup:new {
+                    FrameContainer:new {
+                        width = book_width,
+                        height = progress_height,
+                        background = base_color,
+                        bordersize = 0,
+                        padding = 0,
+                        VerticalSpan:new { width = progress_height },
+                    },
+                    FrameContainer:new {
+                        width = book_width,
+                        height = book_height - progress_height,
+                        background = accent_color,
+                        bordersize = 0,
+                        padding = 0,
+                        VerticalSpan:new { width = book_height - progress_height },
+                    }
+                }
+            else
+                -- bottom to top
+                spine = VerticalGroup:new {
+                    FrameContainer:new {
+                        width = book_width,
+                        height = book_height - progress_height,
+                        background = accent_color,
+                        bordersize = 0,
+                        padding = 0,
+                        VerticalSpan:new { width = book_height - progress_height },
+                    },
+                    FrameContainer:new {
+                        width = book_width,
+                        height = progress_height,
+                        background = base_color,
+                        bordersize = 0,
+                        padding = 0,
+                        VerticalSpan:new { width = progress_height },
+                    }
+                }
+            end
         end
 
         spine = FrameContainer:new {
@@ -1035,6 +1087,44 @@ _G.dofile = function(filepath)
                         },
                     },
                     {
+                        text = _("Progression type"),
+                        sub_item_table = {
+                            {
+                                text = _("Progress bar"),
+                                checked_func = function()
+                                    return getSetting(SETTINGS.PROGRESSION_TYPE, DEFAULTS.PROGRESSION_TYPE) ==
+                                        PROGRESSION_BAR
+                                end,
+                                callback = function()
+                                    G_reader_settings:saveSetting(SETTINGS.PROGRESSION_TYPE, PROGRESSION_BAR)
+                                end,
+                                radio = true,
+                            },
+                            {
+                                text = _("Top to bottom"),
+                                checked_func = function()
+                                    return getSetting(SETTINGS.PROGRESSION_TYPE, DEFAULTS.PROGRESSION_TYPE) ==
+                                        PROGRESSION_TOP_TO_BOTTOM
+                                end,
+                                callback = function()
+                                    G_reader_settings:saveSetting(SETTINGS.PROGRESSION_TYPE, PROGRESSION_TOP_TO_BOTTOM)
+                                end,
+                                radio = true,
+                            },
+                            {
+                                text = _("Bottom to top"),
+                                checked_func = function()
+                                    return getSetting(SETTINGS.PROGRESSION_TYPE, DEFAULTS.PROGRESSION_TYPE) ==
+                                        PROGRESSION_BOTTOM_TO_TOP
+                                end,
+                                callback = function()
+                                    G_reader_settings:saveSetting(SETTINGS.PROGRESSION_TYPE, PROGRESSION_BOTTOM_TO_TOP)
+                                end,
+                                radio = true,
+                            },
+                        },
+                    },
+                    {
                         text = _("Show standing book"),
                         checked_func = function()
                             return isSettingEnabled(SETTINGS.SHOW_STANDING_BOOK, DEFAULTS.SHOW_STANDING_BOOK)
@@ -1128,6 +1218,7 @@ _G.dofile = function(filepath)
                         text = _("Restore defaults"),
                         callback = function()
                             G_reader_settings:delSetting(SETTINGS.BACKGROUND_TYPE)
+                            G_reader_settings:delSetting(SETTINGS.PROGRESSION_TYPE)
                             G_reader_settings:delSetting(SETTINGS.SHOW_STANDING_BOOK)
                             G_reader_settings:delSetting(SETTINGS.SHOW_STACK_DECOR)
                             G_reader_settings:delSetting(SETTINGS.SHOW_TIME_LEFT)
