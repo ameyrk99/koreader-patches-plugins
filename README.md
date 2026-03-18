@@ -2,9 +2,10 @@
 
 ### [2-bookshelf-screensaver.lua](./patches/2-bookshelf-screensaver.lua)
 
-| ![](./imgs/bookshelf_screensaver_grayscale_kindle_oasis.jpeg) | ![](./imgs/bookshelf_screensaver_color_emu.png) |
-| ------------------------------------------------------------- | ----------------------------------------------- |
-| Grayscale (Kindle Oasis)                                      | Color (Emulator - Kindle Paperwhite)            |
+| Grayscale (Kindle Oasis)                                       | Color (Emulator - Kindle Paperwhite)             |
+| -------------------------------------------------------------- | ------------------------------------------------ |
+| ![](./imgs/bookshelf_screensaver_grayscale_kindle_oasis.jpeg)  | ![](./imgs/bookshelf_screensaver_color_emu.png)  |
+| ![](./imgs/bookshelf_screensaver_grayscale_kindle_oasis1.jpeg) | ![](./imgs/bookshelf_screensaver_color_emu1.png) |
 
 Features:
 
