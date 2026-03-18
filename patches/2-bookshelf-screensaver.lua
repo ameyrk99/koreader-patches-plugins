@@ -35,7 +35,7 @@ local STACK_DECOR_PATH     = DataStorage:getDataDir() .. "/resources/bookshelf-s
 local CUSTOM_BG_PATH       = DataStorage:getDataDir() .. "/resources/backgrounds/"
 
 local STACK_OFFSET_LEFT    = Screen:scaleBySize(20)
-local STACK_OFFSET_BOTTOM  = Screen:scaleBySize(20)
+local STACK_OFFSET_BOTTOM  = Screen:scaleBySize(10)
 local BOOK_SPACING         = Screen:scaleBySize(3)
 local SHADOW_SIZE_RIGHT    = Screen:scaleBySize(5)
 local SHADOW_SIZE_BOTTOM   = Screen:scaleBySize(2)
@@ -401,7 +401,10 @@ end
 -- WIDGET BUILDER
 -- ============================================================================
 
-local function buildStandingBookWidget(height, width)
+local info_font_face, base_color, accent_color
+
+local function buildStandingBookWidget(height, width, progress, time_remaining, show_percent, show_time,
+                                       finished_threshold)
     local ReaderUI = require("apps/reader/readerui")
     local ui = ReaderUI.instance
 
@@ -415,7 +418,6 @@ local function buildStandingBookWidget(height, width)
         book_bb:free()
     end
 
-
     local book_widget = FrameContainer:new {
         bordersize = 1,
         color = Blitbuffer.COLOR_BLACK,
@@ -428,10 +430,22 @@ local function buildStandingBookWidget(height, width)
     }
 
     local book_with_shadow = OverlapGroup:new {
-        dimen = { w = width + SHADOW_SIZE_RIGHT, h = height + SHADOW_SIZE_RIGHT },
+        dimen = { w = width + SHADOW_SIZE_RIGHT + SHADOW_SIZE_RIGHT, h = height + SHADOW_SIZE_BOTTOM },
         book_widget,
         HorizontalGroup:new {
+            -- Accent color to resemble pages
             HorizontalSpan:new { width = width },
+            FrameContainer:new {
+                width = SHADOW_SIZE_RIGHT,
+                height = height + SHADOW_SIZE_BOTTOM,
+                background = accent_color,
+                bordersize = 0,
+                padding = 0,
+                HorizontalSpan:new { width = width },
+            },
+        },
+        HorizontalGroup:new {
+            HorizontalSpan:new { width = width + SHADOW_SIZE_RIGHT },
             FrameContainer:new {
                 width = SHADOW_SIZE_RIGHT,
                 height = height + SHADOW_SIZE_BOTTOM,
@@ -444,7 +458,7 @@ local function buildStandingBookWidget(height, width)
         VerticalGroup:new {
             VerticalSpan:new { width = height },
             FrameContainer:new {
-                width = width,
+                width = width + SHADOW_SIZE_RIGHT,
                 height = SHADOW_SIZE_BOTTOM,
                 background = getShadowColor(),
                 bordersize = 0,
@@ -454,7 +468,58 @@ local function buildStandingBookWidget(height, width)
         },
     }
 
-    return book_with_shadow
+    local is_finished = considerBookComplete(progress or 0, finished_threshold or 97)
+    local show_info = (show_percent or show_time) and not is_finished and progress and progress > 0
+
+    if not show_info then
+        return book_with_shadow
+    end
+
+    local info_parts = {}
+    if show_time and time_remaining and time_remaining > 0 then
+        table.insert(info_parts, formatTimeRemaining(time_remaining) .. " left")
+    end
+    if show_percent then
+        table.insert(info_parts, progress .. "%")
+    end
+
+    if #info_parts == 0 then
+        return book_with_shadow
+    end
+
+    local info_text = table.concat(info_parts, " • ")
+    local info_padding = Screen:scaleBySize(8)
+
+    local info_text_widget = TextWidget:new {
+        text = info_text,
+        face = info_font_face,
+        fgcolor = Blitbuffer.Color8(0x40),
+    }
+
+    local info_box = FrameContainer:new {
+        background = accent_color,
+        bordersize = 1,
+        color = Blitbuffer.COLOR_BLACK,
+        padding = info_padding,
+        info_text_widget,
+    }
+
+    local info_box_y = math.floor(height * 0.70)
+    local info_box_x = Screen:scaleBySize(10)
+
+    local combined_widget = OverlapGroup:new {
+        dimen = { w = width + SHADOW_SIZE_RIGHT, h = height + SHADOW_SIZE_BOTTOM },
+        book_with_shadow,
+        VerticalGroup:new {
+            VerticalSpan:new { width = info_box_y },
+            HorizontalGroup:new {
+                HorizontalSpan:new { width = info_box_x },
+                info_box,
+            },
+        },
+    }
+
+    return combined_widget
 end
 
 local function buildBookshelfWidget()
@@ -520,39 +585,53 @@ local function buildBookshelfWidget()
             goto continue
         end
 
+        base_color = getBookColor(i, use_random_colors)
+        accent_color = getAccentColor()
+        -- Title is a little bigger and further increase both texts by 1-2 size
+        local title_face = Font:getFace("cfont", Screen:scaleBySize((font_size + 2) + math.floor(size_factor * 2)))
+        info_font_face = Font:getFace("cfont", Screen:scaleBySize(font_size + math.floor(size_factor * 2)))
+
         if i == 1 then
             top_width = book_width
             if show_standing_book then
                 -- width becomes the height
                 local standing_book_w, standing_book_h = book_width * 0.75, book_width
-                standing_book_widget = buildStandingBookWidget(standing_book_h, standing_book_w)
+                standing_book_widget = buildStandingBookWidget(
+                    standing_book_h,
+                    standing_book_w,
+                    book.progress,
+                    book.time_remaining,
+                    show_percent_completed,
+                    show_time_left,
+                    finished_threshold
+                )
                 if standing_book_widget ~= nil then
                     max_width = math.max(max_width, standing_book_w)
-                    total_height = total_height + standing_book_h
                     table.insert(books_stack, HorizontalGroup:new {
                         HorizontalSpan:new { width = left_offset },
                         standing_book_widget,
                     })
+                    table.insert(books_stack, VerticalSpan:new { width = Screen:scaleBySize(1) })
+                    total_height = total_height + standing_book_h + BOOK_SPACING
                     goto continue
                 else
+                    -- if widget creation failed, fall back on normal display for book
                     max_width = math.max(max_width, book_width)
                     total_height = total_height + book_height + SHADOW_SIZE_BOTTOM
                 end
+            else
+                max_width = math.max(max_width, book_width)
+                total_height = total_height + book_height + SHADOW_SIZE_BOTTOM
             end
         else
             max_width = math.max(max_width, book_width)
             total_height = total_height + book_height + SHADOW_SIZE_BOTTOM
         end
 
-        local base_color = getBookColor(i, use_random_colors)
-        local accent_color = getAccentColor()
+
 
         local progress = book.progress or 0
         local progress_width = math.floor(book_width * (progress / 100))
-
-        -- Title is a little bigger and further increase both texts by 1-2 size
-        local title_face = Font:getFace("cfont", Screen:scaleBySize((font_size + 2) + math.floor(size_factor * 2)))
-        local author_face = Font:getFace("cfont", Screen:scaleBySize(font_size + math.floor(size_factor * 2)))
 
         local title_widget = TextWidget:new {
             text = book.title,
@@ -562,17 +641,17 @@ local function buildBookshelfWidget()
             max_width = 0.8 * book_width,
         }
 
-        local author_text = book.author
+        local info_text = book.author
         if show_percent_completed and progress > 0 and not considerBookComplete(progress, finished_threshold) then
-            author_text = progress .. "% • " .. author_text
+            info_text = progress .. "% • " .. info_text
         end
         if show_time_left and progress > 0 and not considerBookComplete(progress, finished_threshold) and book.time_remaining then
-            author_text = T(_("%1 left"), formatTimeRemaining(book.time_remaining)) .. " • " .. author_text
+            info_text = T(_("%1 left"), formatTimeRemaining(book.time_remaining)) .. " • " .. info_text
         end
 
-        local author_widget = TextWidget:new {
-            text = author_text,
-            face = author_face,
+        local info_text_widget = TextWidget:new {
+            text = info_text,
+            face = info_font_face,
             fgcolor = Blitbuffer.Color8(0x40),
             max_width = 0.7 * book_width,
         }
@@ -736,13 +815,13 @@ local function buildBookshelfWidget()
             spine,
             HorizontalGroup:new {
                 align = "center",
-                HorizontalSpan:new { width = (book_width / 2) - (math.max(title_widget:getSize().w, author_widget:getSize().w) / 2) },
+                HorizontalSpan:new { width = (book_width / 2) - (math.max(title_widget:getSize().w, info_text_widget:getSize().w) / 2) },
                 VerticalGroup:new {
                     align = "center",
-                    VerticalSpan:new { width = (book_height - title_widget:getSize().h - author_widget:getSize().h) / 2 },
+                    VerticalSpan:new { width = (book_height - title_widget:getSize().h - info_text_widget:getSize().h) / 2 },
                     title_widget,
                     VerticalSpan:new { width = -Screen:scaleBySize(2) },
-                    author_widget
+                    info_text_widget
                 }
             }
         }
