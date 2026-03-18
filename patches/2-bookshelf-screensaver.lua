@@ -74,6 +74,7 @@ local PATCH_L10N = {
         ["Dotted pattern"] = "Dotted pattern",
         ["Book cover"] = "Book cover",
         ["Custom image"] = "Custom image",
+        ["Show standing book"] = "Show standing book",
         ["Show stack decoration"] = "Show stack decoration",
         ["Show time left"] = "Show time left",
         ["Show percent completed"] = "Show percent completed",
@@ -123,6 +124,7 @@ local BACKGROUND_CUSTOM = 3
 
 local SETTINGS = {
     BACKGROUND_TYPE = "bookshelf_screensaver_background_type",
+    SHOW_STANDING_BOOK = "bookshelf_screensaver_show_standing_book",
     SHOW_STACK_DECOR = "bookshelf_screensaver_show_stack_decor",
     SHOW_TIME_LEFT = "bookshelf_screensaver_show_time_left",
     SHOW_PERCENT = "bookshelf_screensaver_show_percent",
@@ -131,12 +133,13 @@ local SETTINGS = {
     USE_MISALIGNED_STACK = "bookshelf_screensaver_use_misaligned_stack",
     NUM_BOOKS = "bookshelf_screensaver_num_books",
     FINISHED_THRESHOLD = "bookshelf_screensaver_finished_threshold",
-    MIN_BOOK_SIZE = "bookshelf_minimum_pages",
+    MIN_BOOK_SIZE = "bookshelf_screensaver_minimum_pages",
     FONT_SIZE = "bookshelf_screensaver_font_size"
 }
 
 local DEFAULTS = {
     BACKGROUND_TYPE = 1,
+    SHOW_STANDING_BOOK = true,
     SHOW_STACK_DECOR = false,
     SHOW_TIME_LEFT = true,
     SHOW_PERCENT = false,
@@ -395,14 +398,71 @@ local function considerBookComplete(progress, threshold)
 end
 
 -- ============================================================================
--- MAIN WIDGET BUILDER
+-- WIDGET BUILDER
 -- ============================================================================
+
+local function buildStandingBookWidget(height, width)
+    local ReaderUI = require("apps/reader/readerui")
+    local ui = ReaderUI.instance
+
+    if not ui or not ui.document or not ui.bookinfo then return nil end
+
+    local book_bb = ui.bookinfo:getCoverImage(ui.document)
+    if not book_bb then return nil end
+
+    local scaled_bb = RenderImage:scaleBlitBuffer(book_bb, width, height, true)
+    if scaled_bb ~= book_bb and book_bb.free then
+        book_bb:free()
+    end
+
+
+    local book_widget = FrameContainer:new {
+        bordersize = 1,
+        color = Blitbuffer.COLOR_BLACK,
+        padding = 0,
+        ImageWidget:new {
+            image = scaled_bb,
+            width = width,
+            height = height,
+        }
+    }
+
+    local book_with_shadow = OverlapGroup:new {
+        dimen = { w = width + SHADOW_SIZE_RIGHT, h = height + SHADOW_SIZE_RIGHT },
+        book_widget,
+        HorizontalGroup:new {
+            HorizontalSpan:new { width = width },
+            FrameContainer:new {
+                width = SHADOW_SIZE_RIGHT,
+                height = height + SHADOW_SIZE_BOTTOM,
+                background = getShadowColor(),
+                bordersize = 0,
+                padding = 0,
+                HorizontalSpan:new { width = width },
+            },
+        },
+        VerticalGroup:new {
+            VerticalSpan:new { width = height },
+            FrameContainer:new {
+                width = width,
+                height = SHADOW_SIZE_BOTTOM,
+                background = getShadowColor(),
+                bordersize = 0,
+                padding = 0,
+                HorizontalSpan:new { width = height },
+            },
+        },
+    }
+
+    return book_with_shadow
+end
 
 local function buildBookshelfWidget()
     local screen_size = Screen:getSize()
 
     -- Load settings
     local background_type = getSetting(SETTINGS.BACKGROUND_TYPE, DEFAULTS.BACKGROUND_TYPE)
+    local show_standing_book = isSettingEnabled(SETTINGS.SHOW_STANDING_BOOK, DEFAULTS.SHOW_STANDING_BOOK)
     local show_stack_decor = isSettingEnabled(SETTINGS.SHOW_STACK_DECOR, DEFAULTS.SHOW_STACK_DECOR)
     local show_time_left = isSettingEnabled(SETTINGS.SHOW_TIME_LEFT, DEFAULTS.SHOW_TIME_LEFT)
     local show_percent_completed = isSettingEnabled(SETTINGS.SHOW_PERCENT, DEFAULTS.SHOW_PERCENT)
@@ -439,6 +499,8 @@ local function buildBookshelfWidget()
     local shadow_color = getShadowColor()
     local band_color = getBandColor()
 
+    local standing_book_widget = nil
+
     for i = 1, book_count do
         local book = books[i]
         local left_offset = use_misaligned_stack and Screen:scaleBySize(math.random(0, 20)) or 0
@@ -453,11 +515,34 @@ local function buildBookshelfWidget()
         -- Book width will be 60-85% of screen size
         local book_width = math.floor(screen_size.w * (0.6 + (size_factor * 0.25)))
 
+        -- Skip books if overflowing; Done for standing books but works out for normal stack too
+        if total_height + book_height + Screen:scaleBySize(25) > screen_size.h then
+            goto continue
+        end
+
         if i == 1 then
             top_width = book_width
+            if show_standing_book then
+                -- width becomes the height
+                local standing_book_w, standing_book_h = book_width * 0.75, book_width
+                standing_book_widget = buildStandingBookWidget(standing_book_h, standing_book_w)
+                if standing_book_widget ~= nil then
+                    max_width = math.max(max_width, standing_book_w)
+                    total_height = total_height + standing_book_h
+                    table.insert(books_stack, HorizontalGroup:new {
+                        HorizontalSpan:new { width = left_offset },
+                        standing_book_widget,
+                    })
+                    goto continue
+                else
+                    max_width = math.max(max_width, book_width)
+                    total_height = total_height + book_height + SHADOW_SIZE_BOTTOM
+                end
+            end
+        else
+            max_width = math.max(max_width, book_width)
+            total_height = total_height + book_height + SHADOW_SIZE_BOTTOM
         end
-        max_width = math.max(max_width, book_width)
-        total_height = total_height + book_height + SHADOW_SIZE_BOTTOM
 
         local base_color = getBookColor(i, use_random_colors)
         local accent_color = getAccentColor()
@@ -671,6 +756,7 @@ local function buildBookshelfWidget()
             table.insert(books_stack, VerticalSpan:new { width = BOOK_SPACING })
             total_height = total_height + BOOK_SPACING
         end
+        ::continue::
     end
 
     local top_margin = math.max(0, screen_size.h - total_height)
@@ -717,7 +803,7 @@ local function buildBookshelfWidget()
         }
     end
 
-    if show_stack_decor and stack_decor_widget then
+    if (not show_standing_book) and show_stack_decor and stack_decor_widget then
         table.insert(final_widget, VerticalGroup:new {
             VerticalSpan:new {
                 width = top_margin - STACK_DECOR_HEIGHT + STACK_DECOR_OFFSET_Y,
@@ -870,6 +956,16 @@ _G.dofile = function(filepath)
                         },
                     },
                     {
+                        text = _("Show standing book"),
+                        checked_func = function()
+                            return isSettingEnabled(SETTINGS.SHOW_STANDING_BOOK, DEFAULTS.SHOW_STANDING_BOOK)
+                        end,
+                        callback = function()
+                            local current = isSettingEnabled(SETTINGS.SHOW_STANDING_BOOK, DEFAULTS.SHOW_STANDING_BOOK)
+                            G_reader_settings:saveSetting(SETTINGS.SHOW_STANDING_BOOK, not current)
+                        end,
+                    },
+                    {
                         text = _("Show stack decoration"),
                         checked_func = function()
                             return isSettingEnabled(SETTINGS.SHOW_STACK_DECOR, DEFAULTS.SHOW_STACK_DECOR)
@@ -953,6 +1049,7 @@ _G.dofile = function(filepath)
                         text = _("Restore defaults"),
                         callback = function()
                             G_reader_settings:delSetting(SETTINGS.BACKGROUND_TYPE)
+                            G_reader_settings:delSetting(SETTINGS.SHOW_STANDING_BOOK)
                             G_reader_settings:delSetting(SETTINGS.SHOW_STACK_DECOR)
                             G_reader_settings:delSetting(SETTINGS.SHOW_TIME_LEFT)
                             G_reader_settings:delSetting(SETTINGS.SHOW_PERCENT)

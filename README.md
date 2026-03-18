@@ -19,7 +19,8 @@ Config:
 | Configurable           | Default    | Note                                                                                      |
 | ---------------------- | ---------- | ----------------------------------------------------------------------------------------- |
 | Show background        | `enabled`  | Dotted pattern background                                                                 |
-| Show stack decoration  | `enabled`  | Image on top of the stack (provided cat image)                                            |
+| Show standing book     | `enabled`  | Show the currently reading book stand on top of the stack                                 |
+| Show stack decoration  | `disabled` | Image on top of the stack (provided cat image)                                            |
 | Show time left in book | `enabled`  | Time left in book. Hidden for finished books                                              |
 | Show percent completed | `disabled` | Progress percentage in the book. Hidden for finished books                                |
 | Show progress bands    | `enabled`  | Bands at progress `25%`, `50%`, `75%`, and `finished`                                     |
