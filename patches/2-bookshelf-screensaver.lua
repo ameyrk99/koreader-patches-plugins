@@ -197,6 +197,7 @@ local function getRecentBooks(max_books, min_book_size)
         return nil
     end
 
+    --
     local sql_stmt = string.format([[
         SELECT b.title, b.authors, b.pages, MAX(p.start_time) as last_read,
             (SELECT page FROM page_stat WHERE id_book = b.id ORDER BY start_time DESC LIMIT 1) as current_page,
@@ -321,32 +322,6 @@ local function getCustomBackground()
     return nil
 end
 
--- local function getCustomBackground()
---     local screen_size = Screen:getSize()
---     local bg_dir = CUSTOM_BG_PATH
-
---     local attrs = lfs.attributes(bg_dir, "mode")
---     if attrs ~= "directory" then return nil end
-
---     local images = {}
---     for entry in lfs.dir(bg_dir) do
---         if entry:match("%.png$") or entry:match("%.jpg$") or entry:match("%.jpeg$") then
---             table.insert(images, bg_dir .. entry)
---         end
---     end
-
---     if #images == 0 then return nil end
-
---     local chosen = images[math.random(1, #images)]
-
---     return ImageWidget:new {
---         file = chosen,
---         width = screen_size.w,
---         height = screen_size.h,
---         scale_factor = 0, -- auto scale to fit
---     }
--- end
-
 local function formatTimeRemaining(seconds)
     if not seconds or seconds <= 0 then
         return nil
@@ -418,7 +393,7 @@ end
 
 local function getShadowColor()
     if isColorScreen() then
-        return Blitbuffer.ColorRGB32(80, 80, 80, 255)
+        return Blitbuffer.ColorRGB32(80, 80, 80, 255) -- gray-ish shade
     else
         return Blitbuffer.Color8(0x40)
     end
@@ -434,7 +409,7 @@ end
 
 local function getAccentColor()
     if isColorScreen() then
-        return Blitbuffer.ColorRGB32(240, 235, 220, 255)
+        return Blitbuffer.ColorRGB32(240, 235, 220, 255) -- light brown (page color)
     else
         return Blitbuffer.Color8(0xE0)
     end
@@ -448,7 +423,7 @@ end
 -- WIDGET BUILDER
 -- ============================================================================
 
-local info_font_face, base_color, accent_color
+local title_face, info_font_face, base_color, accent_color
 
 local function buildStandingBookWidget(height, width, progress, time_remaining, show_percent, show_time,
                                        finished_threshold)
@@ -636,7 +611,7 @@ local function buildBookshelfWidget()
         base_color = getBookColor(i, use_random_colors)
         accent_color = getAccentColor()
         -- Title is a little bigger and further increase both texts by 1-2 size
-        local title_face = Font:getFace("cfont", Screen:scaleBySize((font_size + 2) + math.floor(size_factor * 2)))
+        title_face = Font:getFace("cfont", Screen:scaleBySize((font_size + 2) + math.floor(size_factor * 2)))
         info_font_face = Font:getFace("cfont", Screen:scaleBySize(font_size + math.floor(size_factor * 2)))
 
         if i == 1 then
@@ -704,6 +679,8 @@ local function buildBookshelfWidget()
         }
 
         local spine = nil
+
+        -- ---------------------------- Draw progression ---------------------------- --
         if considerBookComplete(progress, finished_threshold) then
             spine = HorizontalGroup:new {
                 FrameContainer:new {
@@ -786,7 +763,7 @@ local function buildBookshelfWidget()
             spine,
         }
 
-        -- --------------------------------- Shadows -------------------------------- --
+        -- ------------------------------ Draw shadows ------------------------------ --
         spine = OverlapGroup:new {
             dimen = { w = book_width + SHADOW_SIZE_RIGHT, h = book_height + SHADOW_SIZE_RIGHT },
             spine,
@@ -814,7 +791,7 @@ local function buildBookshelfWidget()
             },
         }
 
-        -- ----------------------------- Progress bands ----------------------------- --
+        -- --------------------------- Draw progress bands -------------------------- --
         if show_progress_bands then
             -- Different percentage of the book width
             local band_size = math.floor(book_width * 0.02)
@@ -898,6 +875,7 @@ local function buildBookshelfWidget()
             end
         end
 
+        -- -------------------------------- Draw text ------------------------------- --
         local book_spine = OverlapGroup:new {
             dimen = { w = max_width, h = book_height },
             spine,
@@ -942,7 +920,7 @@ local function buildBookshelfWidget()
         dimen = screen_size,
     }
 
-    -- Background
+    -- ----------------------------- Draw Background ---------------------------- --
     local bg_widget = nil
     if background_type == BACKGROUND_DOTTED then
         bg_widget = createDottedBackground()
