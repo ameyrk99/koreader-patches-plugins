@@ -1,11 +1,9 @@
-# Koreader patches & plugins
-
-### [2-bookshelf-screensaver.lua](./patches/2-bookshelf-screensaver.lua)
+# KOReader Bookshelf Screensaver
 
 | Grayscale (Kindle Oasis)                                       | Color (Emulator - Kindle Paperwhite)             |
 | -------------------------------------------------------------- | ------------------------------------------------ |
-| ![](./imgs/bookshelf_screensaver_grayscale_kindle_oasis.jpeg)  | ![](./imgs/bookshelf_screensaver_color_emu.png)  |
-| ![](./imgs/bookshelf_screensaver_grayscale_kindle_oasis1.jpeg) | ![](./imgs/bookshelf_screensaver_color_emu1.png) |
+| ![](./imgs/bookshelf_screensaver_grayscale_kindle_oasis.jpeg)  | ![](./imgs/bookshelf_screensaver_color_emu2.png) |
+| ![](./imgs/bookshelf_screensaver_grayscale_kindle_oasis1.jpeg) | ![](./imgs/bookshelf_screensaver_color_emu.png)  |
 
 Features:
 
@@ -19,21 +17,21 @@ Features:
 
 Config:
 
-| Configurable           | Default          | Note                                                                                                                                                                              |
-| ---------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Background type        | `Dotted pattern` | Background for bookshelf. Options: `No background`, `Dotted pattern`, `Book cover`, and `Custom image`; Custom image chooses a random image from `koreader/resources/backgrounds` |
-| Progression type       | `Progress bar`   | Progression on book spine. Options are `Progress bar`, `Top to bottom` like a book, and `Bottom to top` like filling a glass (also like a book for some languages!)               |
-| Show standing book     | `enabled`        | Show the currently reading book stand on top of the stack. **Only shown if a book is open**                                                                                       |
-| Show stack decoration  | `disabled`       | Image on top of the stack (provided cat image); Ignored if standing book in use                                                                                                   |
-| Show time left in book | `enabled`        | Time left in book. Hidden for finished books                                                                                                                                      |
-| Show percent completed | `disabled`       | Progress percentage in the book. Hidden for finished books                                                                                                                        |
-| Show progress bands    | `enabled`        | Bands at progress `25%`, `50%`, `75%`, and `finished`                                                                                                                             |
-| Randomize book colors  | `disabled`       | Randomize book colors instead of cycling                                                                                                                                          |
-| Misaligned stack       | `enabled`        | Slightly offset books for a natural look                                                                                                                                          |
-| Number of books        | `5`              | Books to display (might show less if standing book enabled)                                                                                                                       |
-| `finished` threshold   | `97`             | Consider book finished if above this % (in order to ignore glossary, appendix, etc pages)                                                                                         |
-| Min page threshold     | `0`              | Hide books if below threshold (to filter small PDFs etc)                                                                                                                          |
-| Font size              | `6`              | Font size for text. Truncated if too long                                                                                                                                         |
+| Configurable           | Default          | Note                                                                                                                                                                                                                                            |
+| ---------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Background type        | `Dotted pattern` | Background for bookshelf. Options: `No background`, `Dotted pattern`, `Book cover`, and `Custom image`; Custom image chooses a random image from `koreader/resources/backgrounds`. `png` custom images and `No background` support transparency |
+| Progression type       | `Progress bar`   | Progression on book spine. Options are `Progress bar`, `Top to bottom` like a book, and `Bottom to top` like filling a glass (also like a book for some languages!)                                                                             |
+| Show standing book     | `enabled`        | Show the currently reading book stand on top of the stack. **Only shown if a book is open**                                                                                                                                                     |
+| Show stack decoration  | `disabled`       | Image on top of the stack (provided cat image); Ignored if standing book in use                                                                                                                                                                 |
+| Show time left in book | `enabled`        | Time left in book. Hidden for finished books                                                                                                                                                                                                    |
+| Show percent completed | `disabled`       | Progress percentage in the book. Hidden for finished books                                                                                                                                                                                      |
+| Show progress bands    | `enabled`        | Bands at progress `25%`, `50%`, `75%`, and `finished`                                                                                                                                                                                           |
+| Randomize book colors  | `disabled`       | Randomize book colors instead of cycling                                                                                                                                                                                                        |
+| Misaligned stack       | `enabled`        | Slightly offset books for a natural look                                                                                                                                                                                                        |
+| Number of books        | `5`              | Books to display (might show less if standing book enabled)                                                                                                                                                                                     |
+| `finished` threshold   | `97`             | Consider book finished if above this % (in order to ignore glossary, appendix, etc pages)                                                                                                                                                       |
+| Min page threshold     | `0`              | Hide books if below threshold (to filter small PDFs etc)                                                                                                                                                                                        |
+| Font size              | `6`              | Font size for text. Truncated if too long                                                                                                                                                                                                       |
 
 Add your own backgrounds to `koreader/resources/backgrounds` or change the value of `CUSTOM_BG_PATH` if you use another folder.
 Websites like https://www.ebookscreensaver.com/ can help you crop image for your device.
@@ -44,7 +42,7 @@ If you decide to use your own decor (`bookshelf-screensaver-decor.png`) update `
 
 ## Installation
 
-1. Copy `2-bookshelf-screensaver.lua` to `koreader/patches`
+1. Copy [`2-bookshelf-screensaver.lua`](./patches/2-bookshelf-screensaver.lua) to `koreader/patches`
 2. Copy custom images to `koreader/resources/backgrounds` (See [sample](./resources/backgrounds/wave.jpeg))
 3. Copy [decoration image](./resources/bookshelf-screensaver-decor.png) to `koreader/resources/bookshelf-screensaver-decor.png`
 4. Select "Bookshelf" in `Screen -> Sleep screen -> Wallpaper -> Bookshelf`

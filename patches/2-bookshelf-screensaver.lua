@@ -315,6 +315,7 @@ local function getCustomBackground()
                 image = bb,
                 width = screen_size.w,
                 height = screen_size.h,
+                alpha = true,
             }
         end
     end
@@ -918,6 +919,7 @@ local function buildBookshelfWidget()
 
     local final_widget = OverlapGroup:new {
         dimen = screen_size,
+        alpha = true,
     }
 
     -- ----------------------------- Draw Background ---------------------------- --
@@ -988,11 +990,13 @@ Screensaver.show = function(self)
 
     local widget = buildBookshelfWidget()
 
-    Screen:clear()
+    -- Commented for transparency
+    -- Screen:clear()
 
     self.screensaver_widget = ScreenSaverWidget:new {
         widget = widget,
-        background = Blitbuffer.COLOR_WHITE,
+        -- background = Blitbuffer.COLOR_WHITE,
+        alpha = true,
         covers_fullscreen = true,
     }
     self.screensaver_widget.modal = true
